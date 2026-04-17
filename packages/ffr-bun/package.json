@@ -1,0 +1,24 @@
+{
+  "name": "@ffr/bun",
+  "version": "0.1.0",
+  "description": "Bun FFI bindings for ffr (fast file reader) — classified, bounded, chunk-capable file reading.",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": ["index.js", "index.d.ts", "README.md"],
+  "keywords": ["ffr", "file-reader", "bun", "ffi", "rust"],
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "optionalDependencies": {
+    "@ffr/bin-darwin-arm64": "0.1.0",
+    "@ffr/bin-darwin-x64": "0.1.0",
+    "@ffr/bin-linux-x64-gnu": "0.1.0",
+    "@ffr/bin-linux-arm64-gnu": "0.1.0",
+    "@ffr/bin-linux-x64-musl": "0.1.0",
+    "@ffr/bin-linux-arm64-musl": "0.1.0",
+    "@ffr/bin-win32-x64": "0.1.0",
+    "@ffr/bin-win32-arm64": "0.1.0"
+  }
+}

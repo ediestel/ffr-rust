@@ -1,0 +1,17 @@
+pub mod cache;
+pub mod classify;
+pub mod db;
+pub mod decode;
+pub mod errors;
+pub mod index;
+pub mod lines;
+pub mod log;
+pub mod prefetch;
+pub mod read;
+pub mod shared;
+pub mod specialized;
+pub mod stat;
+#[cfg(feature = "tree-sitter")]
+pub mod ts_outline;
+pub mod types;
+pub mod watcher;

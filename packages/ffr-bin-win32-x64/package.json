@@ -1,0 +1,16 @@
+{
+  "name": "@ffr/bin-win32-x64",
+  "version": "0.1.0",
+  "description": "ffr native binary for Windows x86_64",
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "main": "ffr_c.dll",
+  "files": ["ffr_c.dll"],
+  "publishConfig": { "access": "public" },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eckhartd/ffr.nvim.git",
+    "directory": "packages/ffr-bin-win32-x64"
+  }
+}

@@ -1,0 +1,76 @@
+[package]
+name = "ffr-core"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "ffr_core"
+crate-type = ["rlib"]
+
+[features]
+default = ["pdf", "image-specialized", "archive"]
+pdf = ["dep:pdf-extract"]
+image-specialized = ["dep:image", "dep:kamadak-exif"]
+archive = ["dep:zip", "dep:tar", "dep:flate2"]
+tree-sitter = [
+    "dep:tree-sitter",
+    "dep:tree-sitter-rust",
+    "dep:tree-sitter-python",
+    "dep:tree-sitter-javascript",
+    "dep:tree-sitter-typescript",
+    "dep:tree-sitter-c",
+    "dep:tree-sitter-cpp",
+    "dep:tree-sitter-go",
+    "dep:tree-sitter-java",
+]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+heed = "0.22.0"
+parking_lot = "0.12"
+thiserror = "2.0.10"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+notify = "8.1.0"
+notify-debouncer-full = "0.7"
+dirs = "5"
+
+encoding_rs = "0.8"
+crossbeam-channel = "0.5"
+
+# Specialized handlers (feature-gated)
+pdf-extract = { version = "0.7", optional = true }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico"], optional = true }
+kamadak-exif = { version = "0.5", optional = true }
+zip = { version = "2", default-features = false, optional = true }
+tar = { version = "0.4", optional = true }
+flate2 = { version = "1", optional = true }
+
+# Tree-sitter (feature-gated)
+tree-sitter = { version = "0.25", optional = true }
+tree-sitter-rust = { version = "0.24", optional = true }
+tree-sitter-python = { version = "0.23", optional = true }
+tree-sitter-javascript = { version = "0.23", optional = true }
+tree-sitter-typescript = { version = "0.23", optional = true }
+tree-sitter-c = { version = "0.24", optional = true }
+tree-sitter-cpp = { version = "0.23", optional = true }
+tree-sitter-go = { version = "0.23", optional = true }
+tree-sitter-java = { version = "0.23", optional = true }
+
+[dev-dependencies]
+tempfile = "3.8"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "read_bench"
+harness = false
+
+[[bench]]
+name = "classify_bench"
+harness = false
+
+[[bench]]
+name = "line_index_bench"
+harness = false

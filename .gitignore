@@ -1,0 +1,34 @@
+# Rust build artifacts
+target/
+Cargo.lock.bak
+
+# Node
+node_modules/
+*.tsbuildinfo
+
+# Bun
+.bun/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Nix
+result
+result-*
+.direnv/
+
+# Misc local
+.env
+.env.local

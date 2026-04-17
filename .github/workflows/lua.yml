@@ -1,0 +1,23 @@
+name: lua
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: nightly
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: build ffr-nvim
+        run: cargo build --release -p ffr-nvim
+      - name: run Lua spec tests
+        run: nvim --headless -u tests/lua/minimal_init.lua -c "luafile tests/lua/ffr_spec.lua" -c "qa!"

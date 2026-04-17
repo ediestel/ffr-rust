@@ -1,0 +1,26 @@
+{
+  "name": "@ffr/node",
+  "version": "0.1.0",
+  "description": "Node.js FFI bindings for ffr (fast file reader) via koffi.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": ["index.js", "index.d.ts", "README.md"],
+  "keywords": ["ffr", "file-reader", "node", "ffi", "rust"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "koffi": "^2.9.0"
+  },
+  "optionalDependencies": {
+    "@ffr/bin-darwin-arm64": "0.1.0",
+    "@ffr/bin-darwin-x64": "0.1.0",
+    "@ffr/bin-linux-x64-gnu": "0.1.0",
+    "@ffr/bin-linux-arm64-gnu": "0.1.0",
+    "@ffr/bin-linux-x64-musl": "0.1.0",
+    "@ffr/bin-linux-arm64-musl": "0.1.0",
+    "@ffr/bin-win32-x64": "0.1.0",
+    "@ffr/bin-win32-arm64": "0.1.0"
+  }
+}

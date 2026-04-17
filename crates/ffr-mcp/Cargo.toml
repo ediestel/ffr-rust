@@ -1,0 +1,28 @@
+[package]
+name = "ffr-mcp"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "ffr-mcp"
+path = "src/main.rs"
+
+[features]
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+
+[dependencies]
+ffr-core = { path = "../ffr-core", features = ["tree-sitter"] }
+rmcp = { version = "1.1.0", features = ["server", "transport-io"] }
+schemars = "1.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+dirs = "5"
+regex = "1"
+grep-searcher = "0.1"
+grep-matcher = "0.1"
+grep-regex = "0.1"
+mimalloc = { version = "0.1.47", optional = true }

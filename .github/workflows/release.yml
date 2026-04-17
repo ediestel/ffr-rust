@@ -1,0 +1,72 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-latest
+            ext: dylib
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+            ext: dylib
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            ext: so
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            ext: so
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-latest
+            ext: so
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-latest
+            ext: so
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            ext: dll
+          - target: aarch64-pc-windows-msvc
+            runner: windows-latest
+            ext: dll
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: cargo build --release
+        run: cargo build --release -p ffr-nvim -p ffr-c --target ${{ matrix.target }}
+      - name: rename artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/libffr_nvim.${{ matrix.ext }} dist/libffr_nvim-${{ matrix.target }}.${{ matrix.ext }} || true
+          cp target/${{ matrix.target }}/release/libffr_c.${{ matrix.ext }} dist/libffr_c-${{ matrix.target }}.${{ matrix.ext }} || true
+          ls dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffr-${{ matrix.target }}
+          path: dist/
+
+  publish:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*

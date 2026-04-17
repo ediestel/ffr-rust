@@ -1,0 +1,19 @@
+[package]
+name = "ffr-nvim"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "ffr_nvim"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+
+[dependencies]
+ffr-core = { path = "../ffr-core" }
+mlua = { version = "0.10", features = ["luajit", "module", "serialize"] }
+serde_json = "1"
+tracing = "0.1"
+mimalloc = { version = "0.1.47", optional = true }

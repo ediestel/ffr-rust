@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "crates/ffr-core",
+    "crates/ffr-nvim",
+    "crates/ffr-mcp",
+    "crates/ffr-c",
+]
+resolver = "2"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true

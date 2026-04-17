@@ -1,0 +1,17 @@
+{
+  "name": "@ffr/bin-linux-arm64-musl",
+  "version": "0.1.0",
+  "description": "ffr native binary for Linux ARM64 (musl libc)",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "libc": ["musl"],
+  "main": "libffr_c.so",
+  "files": ["libffr_c.so"],
+  "publishConfig": { "access": "public" },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eckhartd/ffr.nvim.git",
+    "directory": "packages/ffr-bin-linux-arm64-musl"
+  }
+}

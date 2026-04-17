@@ -1,0 +1,31 @@
+[default]
+extend-ignore-words-re = [
+  # ffr-specific terms that aren't in the default dictionary
+  "ffr",
+  "FFR",
+  "fff",
+  "mlua",
+  "heed",
+  "lmdb",
+  "mimalloc",
+  "rmcp",
+  "schemars",
+  "tempfile",
+  "bindgen",
+  # hex-like version strings
+  "[0-9a-f]{7,}",
+]
+
+[default.extend-identifiers]
+fff = "fff"
+ffr = "ffr"
+
+[files]
+extend-exclude = [
+  "target/*",
+  "Cargo.lock",
+  "packages/ffr-bin-*/*",
+  "*.png",
+  "*.jpg",
+  "*.pdf",
+]

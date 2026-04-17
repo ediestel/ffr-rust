@@ -1,0 +1,16 @@
+{
+  "name": "@ffr/bin-darwin-x64",
+  "version": "0.1.0",
+  "description": "ffr native binary for macOS Intel",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "main": "libffr_c.dylib",
+  "files": ["libffr_c.dylib"],
+  "publishConfig": { "access": "public" },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eckhartd/ffr.nvim.git",
+    "directory": "packages/ffr-bin-darwin-x64"
+  }
+}
