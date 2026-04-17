@@ -1,522 +1,542 @@
-*ffr.txt*  Classified, bounded, chunk-capable file reading for Neovim & agents.
+*ffr.txt*                              Fast file reader for Neovim & AI agents
+                            For Neovim >= 0.10.0    Last change: 2026 April 17
 
 ==============================================================================
-CONTENTS                                                          *ffr-contents*
+Table of Contents                                      *ffr-table-of-contents*
 
-  1. Introduction ........................... |ffr-introduction|
-  2. Setup .................................. |ffr-setup|
-  3. Commands ............................... |ffr-commands|
-  4. Lua API ................................ |ffr-lua-api|
-  5. Configuration .......................... |ffr-config|
-     5.1 Root keys ......................... |ffr-config-root|
-     5.2 Logging ........................... |ffr-config-logging|
-     5.3 Watcher ........................... |ffr-config-watcher|
-     5.4 Encodings ......................... |ffr-config-encodings|
-     5.5 Preview ........................... |ffr-config-preview|
-     5.6 Chunk ............................. |ffr-config-chunk|
-     5.7 Specialized ....................... |ffr-config-specialized|
-     5.8 Accessibility ..................... |ffr-config-accessibility|
-     5.9 Highlights ........................ |ffr-config-highlights|
-     5.10 Hooks ............................ |ffr-config-hooks|
-     5.11 Deprecated keys .................. |ffr-config-deprecated|
-  6. Highlights ............................. |ffr-highlights|
-  7. Statusline ............................. |ffr-statusline|
-  8. Health ................................. |ffr-health|
-  9. Semantic chunking ...................... |ffr-semantic|
- 10. Watcher internals ...................... |ffr-watcher|
- 11. MCP server ............................. |ffr-mcp|
- 12. Architecture ........................... |ffr-architecture|
- 13. Troubleshooting ........................ |ffr-troubleshooting|
+1. ffr.nvim                                                     |ffr-ffr.nvim|
+  - Why ffr                                             |ffr-ffr.nvim-why-ffr|
+  - Feature matrix                               |ffr-ffr.nvim-feature-matrix|
+  - Install                                             |ffr-ffr.nvim-install|
+  - Commands                                           |ffr-ffr.nvim-commands|
+  - Configuration reference             |ffr-ffr.nvim-configuration-reference|
+  - MCP tools                                         |ffr-ffr.nvim-mcp-tools|
+  - Architecture                                   |ffr-ffr.nvim-architecture|
+  - Benchmarks                                       |ffr-ffr.nvim-benchmarks|
+  - Build                                                 |ffr-ffr.nvim-build|
+  - Release                                             |ffr-ffr.nvim-release|
+  - Troubleshooting                             |ffr-ffr.nvim-troubleshooting|
+  - Contributing                                   |ffr-ffr.nvim-contributing|
+  - License                                             |ffr-ffr.nvim-license|
 
 ==============================================================================
-1. INTRODUCTION                                               *ffr-introduction*
+1. ffr.nvim                                                     *ffr-ffr.nvim*
 
-ffr.nvim is a fast file reader for Neovim. It classifies files before reading,
-enforces bounded reads, supports deterministic chunking for large files, and
-rejects binary/unsafe content. It is designed to be consumed by Neovim (via
-in-process FFI), by AI agents (via an MCP server), and by other languages
-(via a C FFI + Bun/Node packages).
+**Classified, bounded, chunk-capable file reading for Neovim and AI agents.**
 
-ffr is the reading counterpart to fff (fast file finder). fff selects paths;
-ffr reads them.
+ffr is the reading counterpart to fff.nvim
+<https://github.com/dmtrKovalenko/fff.nvim>: fff finds paths, ffr reads them.
+Where fff focuses on fuzzy file _search_, ffr focuses on _safely_ loading files
+— classifying them first, refusing binaries, chunking large files, and
+exposing a consistent surface to Neovim (via in-process FFI), AI agents (via
+MCP), and any other language (via a C FFI + Bun/Node bindings).
 
-==============================================================================
-2. SETUP                                                            *ffr-setup*
+------------------------------------------------------------------------------
 
-Build the native backend: >
-    make build
+WHY FFR                                                 *ffr-ffr.nvim-why-ffr*
+
+Loading an arbitrary file into a buffer (or into an LLM context window) is
+unsafe by default. Binaries, minified bundles, and multi-gigabyte logs can
+freeze an editor or blow through a token budget before anyone notices.
+
+ffr fixes that with a deliberate pipeline:
+
+>
+    path → stat → classify → policy → read → decode → render
 <
-Or for development: >
-    make build-debug
+
+Every read is bounded. Every file is inspected before being touched. The output
+is either an editor buffer (with treesitter highlights, a chunk-nav keymap, and
+a preview header) or a structured record for AI agents.
+
+------------------------------------------------------------------------------
+
+FEATURE MATRIX                                   *ffr-ffr.nvim-feature-matrix*
+
+  -------------------------------------------------------------------------------------
+  Capability                Status                  Notes
+  ------------------------- ----------------------- -----------------------------------
+  Classify (kind, encoding, ✓                       ffr_core::classify::classify_path
+  binary, line endings,                             
+  minification)                                     
+
+  Multi-encoding decode     ✓                       Via encoding_rs; BOM sniff +
+  (UTF-8, UTF-16 LE/BE,                             configurable fallback order
+  windows-1252, latin1, …)                          
+
+  Deterministic             ✓                       chunk_id stable per (size, mtime)
+  byte-aligned chunks                               
+
+  Random-access line reads  ✓                       O(log n) after one-pass line index
+
+  LMDB persistent metadata  ✓                       stdpath('data')/ffr/metadata-db/;
+  cache                                             auto-migrates legacy JSON
+
+  LMDB persistent semantic  ✓                       Second named DB keyed by path +
+  chunk cache                                       revision
+
+  File watcher              ✓                       Auto-invalidates line-index +
+  (notify-debouncer-full)                           metadata + semantic caches
+
+  Async chunk prefetch      ✓                       std::thread + crossbeam-channel;
+                                                    warm the OS page cache
+
+  Tree-sitter semantic      ✓                       Lua-side via vim.treesitter; reuses
+  chunking                                          installed parsers
+
+  Syntax-highlighted        ✓                       vim.treesitter.start on preview
+  preview                                           buffers
+
+  Preview header with kind  ✓                       Rendered as a virtual line (source
+  / encoding / chunk pos                            text untouched)
+
+  Chunk-navigation keymaps  ✓                       Buffer-local; configurable
+  (]c/[c)                                           
+
+  Semantic chunk keymaps    ✓                       Jump fn/class boundaries
+  (]f/[f)                                           
+
+  Statusline helper         ✓                       require('ffr').statusline()
+
+  Specialized handlers      ✓                       PDF text · image metadata + EXIF ·
+                                                    zip/tar/tar.gz listings
+
+  MCP server (rmcp, stdio)  ✓                       11 tools (see below)
+
+  ffr-mcp --healthcheck     ✓                       Exits 0/1 with structured
+                                                    diagnostics
+
+  MCP update check (opt-in) ✓                       --no-update-check to disable
+
+  C FFI (cdylib +           ✓                       crates/ffr-c + cbindgen.toml
+  staticlib)                                        
+
+  Bun / Node bindings       ✓                       @ffr/bun, @ffr/node; 8
+                                                    prebuilt-binary packages
+
+  Criterion benches         ✓                       make bench
+
+  Profiler binaries         ✓                       read_profiler, chunk_profiler
+
+  Tracing to rotating log   ✓                       Configurable level, default
+  file                                              stdpath('data')/ffr/ffr.log
+
+  Health check              ✓                       Backend, LMDB, watcher, classify
+  (:checkhealth ffr)                                roundtrip, MCP binary
+
+  mimalloc global allocator ✓                       Feature-gated, default on
+
+  CI: rust / lua / release  ✓                       .github/workflows/
+  / panvimdoc / stylua                              
+
+  Nix flake                 ✓                       nix build, nix develop
+  -------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+INSTALL                                                 *ffr-ffr.nvim-install*
+
+
+NEOVIM (LAZY.NVIM) ~
+
+>lua
+    {
+      'eckhartd/ffr.nvim',
+      build = 'make build',
+      opts = {},                   -- defaults below
+    }
 <
-Then in your Neovim config: >lua
-    require('ffr').setup({
-      -- all options optional; defaults shown
-      chunk_bytes = 64 * 1024,
-      full_open_max_bytes = 2 * 1024 * 1024,
-      max_line_window = 2000,
-      logging = { enabled = true, level = 'info' },
-      watcher = { enabled = true, debounce_ms = 250 },
-      chunk = {
-        prefetch_count = 1,
-        keymaps = { enabled = true, next = ']c', prev = '[c' },
-      },
-      preview = { syntax_highlight = true, line_numbers = true },
-      specialized = {
-        pdf = { enabled = true, max_pages = 50 },
-        image = { enabled = true, show_metadata = true },
-        archive = { enabled = true, max_entries = 500 },
-      },
+
+
+NEOVIM (PACKER.NVIM) ~
+
+>lua
+    use {
+      'eckhartd/ffr.nvim',
+      run = 'make build',
+      config = function() require('ffr').setup({}) end,
+    }
+<
+
+
+NEOVIM (ROCKS.NVIM / VIM.PACK) ~
+
+>lua
+    vim.pack.add({
+      { src = 'https://github.com/eckhartd/ffr.nvim' },
     })
+    require('ffr').setup({})
 <
 
-==============================================================================
-3. COMMANDS                                                      *ffr-commands*
 
-                                                                         *:FFR*
-:FFR {path}             Open a file through the full pipeline.
-                        Small text: fully loaded. Large: chunked mode.
-                        PDF/image/archive: specialized handler.
+MCP SERVER (CLAUDE DESKTOP / AGENT CLIENTS) ~
 
-                                                                  *:FFRPreview*
-:FFRPreview {path}      Force preview mode (first chunk only).
-
-                                                                *:FFRChunkNext*
-:FFRChunkNext           Load the next chunk in a chunked session.
-
-                                                                *:FFRChunkPrev*
-:FFRChunkPrev           Load the previous chunk in a chunked session.
-
-                                                        *:FFRChunkNextSemantic*
-:FFRChunkNextSemantic   Jump to the next function/class boundary using
-                        tree-sitter. Falls through silently when the
-                        buffer's filetype has no parser configured.
-
-                                                        *:FFRChunkPrevSemantic*
-:FFRChunkPrevSemantic   Jump to the previous function/class boundary.
-
-                                                                  *:FFRReload*
-:FFRReload              Reload the current file (invalidates caches).
-
-                                                                    *:FFRInfo*
-:FFRInfo                Display session info for the current buffer.
-
-                                                                  *:FFRHealth*
-:FFRHealth              Emit a structured health report (raw table).
-                        For the native health UI, use |:checkhealth| |ffr|.
-
-                                                                   *:FFRDebug*
-:FFRDebug [on|off|toggle]
-                        Toggle the in-buffer debug overlay.
-
-                                                              *:FFRClearCache*
-:FFRClearCache [all|metadata|content]
-                        Clear caches. Default "all" drops LMDB metadata,
-                        semantic chunks, and the ephemeral line-index cache.
-
-                                                                 *:FFROpenLog*
-:FFROpenLog             Open the tracing log file in a new tab.
-
-                                                             *:FFRWatchStatus*
-:FFRWatchStatus         Show current file-watcher status (running, list
-                        of watched paths).
-
-                                                             *:FFRInvalidate*
-:FFRInvalidate {path}   Drop line-index, metadata, and semantic entries
-                        for a single path.
-
-Default buffer-local keymaps in chunked/preview buffers:
-  ]c          |:FFRChunkNext|
-  [c          |:FFRChunkPrev|
-  ]f          |:FFRChunkNextSemantic|
-  [f          |:FFRChunkPrevSemantic|
-
-==============================================================================
-4. LUA API                                                       *ffr-lua-api*
-
-require('ffr').setup({opts})                                     *ffr.setup()*
-    Initialize ffr. Applies highlights, spawns watcher + prefetcher (when
-    enabled), registers lifecycle hooks for graceful shutdown.
-
-require('ffr').open({path}, {opts?})                              *ffr.open()*
-    Run the full pipeline: stat → classify → policy → read → render.
-
-    Options: ~
-      {source}        string   Caller identifier (e.g. "fff").
-      {preview}       boolean  Force preview mode.
-      {initial_mode}  string   Override policy: "auto"|"full"|"chunked"|"preview".
-
-    Returns (bufnr, err).
-
-require('ffr').preview({path}, {opts?})                        *ffr.preview()*
-    Shorthand for open() with preview=true.
-
-require('ffr').next_chunk()                                 *ffr.next_chunk()*
-require('ffr').prev_chunk()                                 *ffr.prev_chunk()*
-    Load and render the next/previous chunk in the active session.
-
-require('ffr').reload()                                        *ffr.reload()*
-    Invalidate caches and reopen the current file.
-
-require('ffr').info()                                            *ffr.info()*
-    Return the session table for the current buffer.
-
-require('ffr').statusline({bufnr?})                          *ffr.statusline()*
-    Return a short status string for use in statusline integrations:
-    "ffr:chunked · chunk 3 · 2.1MB · utf-8 · rust". Empty string when
-    the current buffer is not an ffr buffer.
-
-require('ffr.semantic').chunks_for_buffer({bufnr}, {lang?})
-                                                  *ffr.semantic.chunks_for_buffer()*
-    Compute top-level semantic chunks via tree-sitter. Cached in LMDB
-    keyed by absolute path + "{size}:{mtime}" revision.
-
-require('ffr.semantic').find_neighbor({bufnr}, {line}, {direction})
-                                                  *ffr.semantic.find_neighbor()*
-    Find the next or previous semantic chunk relative to a cursor line.
-    {direction} is "next" or "prev".
-
-require('ffr.semantic').invalidate({path})         *ffr.semantic.invalidate()*
-    Drop the cached semantic chunk list for a path.
-
-require('ffr.health').run({opts?})                           *ffr.health.run()*
-    Return a structured report without printing (for integrations).
-
-==============================================================================
-5. CONFIGURATION                                                  *ffr-config*
-
-All fields optional. The full default: >lua
-    require('ffr').setup({
-      -- root keys
-      chunk_bytes = 65536,
-      full_open_max_bytes = 2097152,
-      max_line_window = 2000,
-      binary_sniff_bytes = 4096,
-      minified_line_length_threshold = 1000,
-      enable_persistent_metadata_cache = true,
-      metadata_cache_path = nil,
-
-      -- nested tables
-      logging = { enabled = true, level = 'info', file = nil, max_files = 3 },
-      watcher = { enabled = true, debounce_ms = 250 },
-      encodings = {
-        fallback_order = { 'utf-8', 'utf-16le', 'utf-16be', 'windows-1252', 'latin1' },
-      },
-      preview = {
-        syntax_highlight = true, line_numbers = true, max_preview_chunks = 4,
-      },
-      chunk = {
-        prefetch_count = 1,
-        keymaps = { enabled = true, next = ']c', prev = '[c' },
-      },
-      specialized = {
-        pdf     = { enabled = true, max_pages = 50 },
-        image   = { enabled = true, show_metadata = true },
-        archive = { enabled = true, max_entries = 500 },
-      },
-      accessibility = { enabled = false, announce_chunks = false },
-      highlights = {
-        chunk_boundary = nil, preview_header = nil,
-        rejected_banner = nil, binary_hex = nil,
-      },
-      hooks = {
-        on_classify = nil, on_open = nil, on_chunk_load = nil,
-      },
-    })
-<
-
-                                                          *ffr-config-root*
-5.1 Root keys ~
-
-chunk_bytes                     Byte size of one chunk. Default 64 KiB.
-full_open_max_bytes             Max file size for `full` mode. Default 2 MiB.
-max_line_window                 Max lines returned from read_lines. Default 2000.
-binary_sniff_bytes              Prefix used for binary detection. Default 4 KiB.
-minified_line_length_threshold  Line length above which a file is treated as
-                                minified. Default 1000.
-enable_persistent_metadata_cache
-                                Toggle the LMDB cache. Default true.
-metadata_cache_path             LMDB directory. Default stdpath('data')/ffr/
-                                metadata-db. Accepts a legacy `.json` file,
-                                which is migrated into a sibling `-db` dir.
-
-                                                       *ffr-config-logging*
-5.2 Logging ~
-
-logging.enabled     Write tracing spans to a file. Default true.
-logging.level       trace|debug|info|warn|error. Default "info".
-logging.file        Absolute path. Default stdpath('data')/ffr/ffr.log.
-logging.max_files   Soft hint; current implementation truncates on open.
-
-Setup runs structural validation and throws on invalid level, wrong types,
-or negative counts.
-
-                                                       *ffr-config-watcher*
-5.3 Watcher ~
-
-watcher.enabled      Spawn the per-file fs watcher. Default true.
-watcher.debounce_ms  notify-debouncer-full debounce window. Default 250 ms.
-
-The watcher runs in a dedicated OS thread and invalidates the ephemeral
-line-index cache, the persistent metadata LMDB entry, and the persistent
-semantic-chunk LMDB entry on Modify/Create/Remove events.
-
-                                                     *ffr-config-encodings*
-5.4 Encodings ~
-
-encodings.fallback_order  List of encoding names tried (in order) after
-                          BOM/heuristic detection fails. Defaults:
-                          { "utf-8", "utf-16le", "utf-16be",
-                            "windows-1252", "latin1" }
-
-Supports any label accepted by the `encoding_rs` crate.
-
-                                                       *ffr-config-preview*
-5.5 Preview ~
-
-preview.syntax_highlight    Enable vim.treesitter.start in preview buffers.
-preview.line_numbers        Enable `number` in preview windows.
-preview.max_preview_chunks  Ceiling for preview-mode chunk loading.
-
-                                                         *ffr-config-chunk*
-5.6 Chunk ~
-
-chunk.prefetch_count      Number of chunks prefetched ahead of the active one.
-                          Backed by a std::thread + crossbeam-channel worker
-                          that reads and discards chunks so the OS page cache
-                          is warm when the user navigates.
-chunk.keymaps.enabled     Auto-bind chunk navigation in chunked/preview buffers.
-chunk.keymaps.next / prev Keymap strings. Default "]c" / "[c".
-
-                                                   *ffr-config-specialized*
-5.7 Specialized ~
-
-specialized.pdf.enabled         Enable PDF text extraction via pdf-extract.
-specialized.pdf.max_pages       Advisory cap.
-specialized.image.enabled       Image metadata extraction via `image` + EXIF.
-specialized.image.show_metadata Include EXIF fields in the rendered buffer.
-specialized.archive.enabled     Archive (zip/tar/tar.gz) entry listing.
-specialized.archive.max_entries Trim the listing at N entries.
-
-                                                *ffr-config-accessibility*
-5.8 Accessibility ~
-
-accessibility.enabled          Master switch for a11y helpers.
-accessibility.announce_chunks  Emit vim.notify on chunk change.
-
-                                                    *ffr-config-highlights*
-5.9 Highlights ~
-
-highlights.chunk_boundary   Highlight group name to link FFRChunkBoundary to.
-highlights.preview_header   ...FFRPreviewHeader.
-highlights.rejected_banner  ...FFRRejectedBanner.
-highlights.binary_hex       ...FFRBinaryHex.
-
-Passing `false` leaves the group unset. Defaults link to the sensible
-semantic groups (NonText / Title / WarningMsg / Comment).
-
-                                                         *ffr-config-hooks*
-5.10 Hooks ~
-
-hooks.on_classify    function(path, classify_result) invoked after classify.
-hooks.on_open        function(path, session) invoked after successful open.
-hooks.on_chunk_load  function(path, chunk_id) invoked on each chunk load.
-
-Errors in hooks are caught and logged; they never abort the pipeline.
-
-                                                    *ffr-config-deprecated*
-5.11 Deprecated keys ~
-
-The following flat keys are accepted but emit a one-time |vim.notify|
-warning and are migrated into the new schema:
-
-    watcher_enabled         →  watcher.enabled
-    chunk_keymaps_enabled   →  chunk.keymaps.enabled
-    log_level               →  logging.level
-
-==============================================================================
-6. HIGHLIGHTS                                                 *ffr-highlights*
-
-The following highlight groups are defined by |ffr.setup()| with default
-links. Override via `highlights` in setup() (see |ffr-config-highlights|).
-
-    FFRChunkBoundary      linked to NonText
-    FFRPreviewHeader      linked to Title
-    FFRRejectedBanner     linked to WarningMsg
-    FFRBinaryHex          linked to Comment
-    FFRStatusline         linked to StatusLine
-
-Preview buffers render a one-line header as a virtual line above the first
-real line: >
-    -- ffr:chunked · text · utf-8 · chunk 0 · rust
-<
-The source content itself is never modified.
-
-==============================================================================
-7. STATUSLINE                                                  *ffr-statusline*
-
-require('ffr').statusline() returns a short formatted string suitable for
-embedding in your statusline:
-
-    ffr:chunked · chunk 3 · utf-8 · rust
-
-Example lualine integration: >lua
-    require('lualine').setup({
-      sections = {
-        lualine_x = { { function() return require('ffr').statusline() end } },
-      },
-    })
-<
-
-==============================================================================
-8. HEALTH                                                          *ffr-health*
-
-Run :checkhealth ffr for a rendered report, or :FFRHealth for a raw table.
-The report covers:
-
-  backend              native ffr-nvim library loaded
-  metadata             LMDB path + entry count + disk size
-  watcher              running, number of watched paths
-  classify_roundtrip   classify_path works against a known good file
-  mcp_binary           ffr-mcp on PATH
-
-==============================================================================
-9. SEMANTIC CHUNKING                                             *ffr-semantic*
-
-ffr uses |vim.treesitter| (reusing your installed parsers, no Rust TS
-dependency) to split a buffer at top-level node boundaries. Currently
-recognised: ~
-  rust        function_item, impl_item, trait_item, struct_item, enum_item,
-              mod_item
-  python      function_definition, class_definition
-  javascript  function_declaration, class_declaration, method_definition,
-              arrow_function
-  typescript  function_declaration, class_declaration, method_definition,
-              interface_declaration
-  tsx         function_declaration, class_declaration, method_definition
-  lua         function_declaration, function_definition, method_function
-  c, cpp      function_definition, class_specifier, struct_specifier,
-              declaration
-  go          function_declaration, method_declaration, type_declaration
-  java        method_declaration, class_declaration, interface_declaration
-
-Results are cached in the LMDB env under a second named database ("semantic")
-keyed by absolute path and tagged with a revision ("{size}:{mtime}"). Cache
-is invalidated by the fs watcher on Modify/Remove.
-
-==============================================================================
-10. WATCHER INTERNALS                                              *ffr-watcher*
-
-When `watcher.enabled = true`, ffr.setup() defers a call to `watcher_spawn`
-after client startup completes. The watcher owns a notify-debouncer-full
-debouncer inside a dedicated `ffr-watcher-owner` thread that is joined
-cleanly on VimLeavePre (via |lifecycle|).
-
-Paths are registered non-recursively as files are classified. On Modify,
-Create, or Remove events, the watcher callback invalidates:
-
-  - the ephemeral LineIndex cache for that path
-  - the persistent LMDB metadata entry for that path
-  - the persistent LMDB semantic chunk entry for that path
-
-==============================================================================
-11. MCP SERVER                                                        *ffr-mcp*
-
-ffr-mcp exposes 11 tools over the Model Context Protocol (stdio):
-
-  stat_file                     stat + metadata
-  classify_file                 detect kind/encoding/binary/too-large
-  read_file                     read lines in a range
-  read_chunk                    deterministic byte-aligned chunk
-  read_range_around_line        N lines around a target line
-  search_in_file                streaming pattern search via grep-searcher
-  outline                       heuristic top-level decl list
-  list_archive                  zip/tar entry listing
-  extract_pdf_text              PDF plain-text extraction
-  diff_files                    line-level unified diff
-
-Plus a one-time background update check that is injected into the server
-instructions (disable with --no-update-check).
-
-Add to a client config: >json
+>json
     {
       "mcpServers": {
-        "ffr": { "command": "ffr-mcp", "args": ["--log-level","info"] }
+        "ffr": {
+          "command": "ffr-mcp",
+          "args": ["--log-level", "info"]
+        }
       }
     }
 <
 
-CLI flags:
-  --chunk-bytes          Size of read_chunk output.
-  --sniff-bytes          Binary-sniff prefix.
-  --full-open-max-bytes  Threshold for too_large_for_full_open.
-  --minified-threshold   Minified-line detection threshold.
-  --metadata-cache-path  LMDB directory (or legacy .json).
-  --log-file             Tracing log path.
-  --log-level            trace|debug|info|warn|error.
-  --no-update-check      Skip the background version check.
-  --healthcheck          Run diagnostics and exit (0 = ok, 1 = failure).
+Verify with:
 
-==============================================================================
-12. ARCHITECTURE                                              *ffr-architecture*
+>sh
+    ffr-mcp --healthcheck
+<
+
+
+BUN / NODE ~
+
+>sh
+    bun add @ffr/bun          # or: npm i @ffr/node
+<
+
+>js
+    import ffr from '@ffr/bun';
+    
+    const info = ffr.classify('./large.log');
+    if (!info.binary && !info.too_large_for_full_open) {
+      const { lines } = ffr.readLines('./large.log', 1, 500);
+      console.log(lines.join('\n'));
+    }
+<
+
+
+NIX ~
+
+>sh
+    nix develop             # cargo + rust-toolchain + clang
+    nix build .#ffr-nvim    # build the Neovim plugin
+<
+
+------------------------------------------------------------------------------
+
+COMMANDS                                               *ffr-ffr.nvim-commands*
+
+  ------------------------------------------------------------------------------------------------
+  Command                                   Purpose
+  ----------------------------------------- ------------------------------------------------------
+  :FFR {path}                               Open a file through the full pipeline. Chooses full /
+                                            chunked / preview / specialized / reject.
+
+  :FFRPreview {path}                        Force preview mode (first chunk only).
+
+  :FFRChunkNext                             Next chunk in a chunked session.
+
+  :FFRChunkPrev                             Previous chunk.
+
+  :FFRChunkNextSemantic                     Jump to the next fn/class boundary via tree-sitter.
+
+  :FFRChunkPrevSemantic                     Jump to the previous boundary.
+
+  :FFRReload                                Invalidate caches and re-open the current file.
+
+  :FFRInfo                                  Session info for the current buffer.
+
+  :FFRHealth                                Structured health report.
+
+  :FFRClearCache [all\|metadata\|content]   Clear caches. Default all.
+
+  :FFROpenLog                               Open the tracing log file.
+
+  :FFRWatchStatus                           List watched paths + watcher state.
+
+  :FFRInvalidate {path}                     Drop metadata/line/semantic entries for one path.
+
+  :FFRDebug [on\|off\|toggle]               Toggle in-buffer debug overlay.
+
+  :checkhealth ffr                          Native Neovim health check.
+  ------------------------------------------------------------------------------------------------
+Default keymaps inside chunked/preview buffers: `]c`/`[c` (byte chunks),
+`]f`/`[f` (semantic).
+
+------------------------------------------------------------------------------
+
+CONFIGURATION REFERENCE                 *ffr-ffr.nvim-configuration-reference*
+
+All fields are optional. Merged over defaults by `setup()`.
+
+  -------------------------------------------------------------------------------------------------------------------
+  Key                                Default                                           Purpose
+  ---------------------------------- ------------------------------------------------- ------------------------------
+  chunk_bytes                        65536                                             Size of one byte chunk.
+
+  full_open_max_bytes                2097152                                           Max size for full mode.
+
+  max_line_window                    2000                                              Max lines returned in one
+                                                                                       read_lines call.
+
+  binary_sniff_bytes                 4096                                              Prefix scanned for binary
+                                                                                       detection.
+
+  minified_line_length_threshold     1000                                              Above this line length →
+                                                                                       minified.
+
+  enable_persistent_metadata_cache   true                                              Enable the LMDB cache.
+
+  metadata_cache_path                stdpath('data')/ffr/metadata-db                   LMDB dir (or legacy .json,
+                                                                                       auto-migrated).
+
+  logging.enabled                    true                                              Write tracing spans to a file.
+
+  logging.level                      "info"                                            One of trace / debug / info /
+                                                                                       warn / error.
+
+  logging.file                       auto                                              Defaults to
+                                                                                       stdpath('data')/ffr/ffr.log.
+
+  logging.max_files                  3                                                 Soft hint; current
+                                                                                       implementation truncates on
+                                                                                       open.
+
+  watcher.enabled                    true                                              Spawn the per-file fs watcher.
+
+  watcher.debounce_ms                250                                               notify-debouncer-full
+                                                                                       debounce.
+
+  encodings.fallback_order           utf-8, utf-16le, utf-16be, windows-1252, latin1   Tried after BOM/heuristic
+                                                                                       fails.
+
+  preview.syntax_highlight           true                                              vim.treesitter.start in
+                                                                                       preview buffers.
+
+  preview.line_numbers               true                                              Enable number in preview
+                                                                                       windows.
+
+  preview.max_preview_chunks         4                                                 Ceiling for preview-mode chunk
+                                                                                       loading.
+
+  chunk.prefetch_count               1                                                 Chunks prefetched ahead of the
+                                                                                       active one.
+
+  chunk.keymaps.enabled              true                                              Auto-bind ]c/[c in chunked
+                                                                                       buffers.
+
+  chunk.keymaps.next / .prev         "]c" / "[c"                                       Keymap bindings.
+
+  specialized.pdf.enabled            true                                              PDF text extraction.
+
+  specialized.pdf.max_pages          50                                                Cap (advisory).
+
+  specialized.image.enabled          true                                              Image metadata + EXIF.
+
+  specialized.image.show_metadata    true                                              Include EXIF in output.
+
+  specialized.archive.enabled        true                                              Zip/tar entry listing.
+
+  specialized.archive.max_entries    500                                               Cap on entries returned.
+
+  accessibility.enabled              false                                             Enable a11y announcements.
+
+  accessibility.announce_chunks      false                                             vim.notify on chunk change.
+
+  highlights.chunk_boundary /        nil                                               Override default highlight
+  preview_header / rejected_banner /                                                   links.
+  binary_hex                                                                           
+
+  hooks.on_classify / on_open /      nil                                               User callbacks.
+  on_chunk_load                                                                        
+  -------------------------------------------------------------------------------------------------------------------
+
+DEPRECATED FLAT KEYS ~
+
+These are still accepted but emit a one-time `vim.notify` warning and are
+migrated to the new schema:
+
+- `watcher_enabled` → `watcher.enabled`
+- `chunk_keymaps_enabled` → `chunk.keymaps.enabled`
+- `log_level` → `logging.level`
+
+------------------------------------------------------------------------------
+
+MCP TOOLS                                             *ffr-ffr.nvim-mcp-tools*
+
+11 tools exposed over stdio. All tools return text; structured data is
+JSON-embedded.
+
+  -------------------------------------------------------------------------------
+  Tool                     Inputs                  Output
+  ------------------------ ----------------------- ------------------------------
+  stat_file                path                    JSON: exists, is_file, size,
+                                                   mtime, readonly
+
+  classify_file            path                    JSON: kind, encoding, binary,
+                                                   too_large_for_full_open,
+                                                   likely_filetype, …
+
+  read_file                path, startLine?,       Lines [start, end] with line
+                           endLine?                numbers; default [1, 2000]
+
+  read_chunk               path, chunkId           One byte-aligned chunk; header
+                                                   shows byte + line range;
+                                                   deterministic per file
+                                                   revision
+
+  read_range_around_line   path, line, radius?     Lines
+                                                   [line-radius, line+radius]
+                                                   with cursor marker; radius
+                                                   default 30
+
+  search_in_file           path, pattern,          Streaming literal or regex
+                           maxResults?, cursor?    search via grep-searcher;
+                                                   paginated
+
+  outline                  path, maxEntries?       Heuristic top-level decl list
+                                                   (fn/struct/class/trait/type)
+                                                   per extension
+
+  list_archive             path, maxEntries?       Zip/tar entry listing
+
+  extract_pdf_text         path                    PDF plain text via pdf-extract
+
+  diff_files               left, right             Line-level diff
+
+  (implicit)               —                       Update notice injected into
+                                                   server instructions (opt-out)
+  -------------------------------------------------------------------------------
+`ffr-mcp --healthcheck` runs LMDB open + classify-self + tool-count checks and
+exits.
+
+
+RECOMMENDED WORKFLOW (FROM MCP_INSTRUCTIONS) ~
+
+1. Always `classify_file` before reading an unknown path.
+2. Small text → `read_file`. Large text → `read_chunk` with `chunkId=0` and increment.
+3. PDF → `extract_pdf_text`. Archive → `list_archive`. Binary → stop.
+4. For "show me the function at line N" → `read_range_around_line` or `outline` followed by `read_range_around_line`.
+5. For literal / regex search in one file → `search_in_file` (streaming; paginate via cursor).
+
+------------------------------------------------------------------------------
+
+ARCHITECTURE                                       *ffr-ffr.nvim-architecture*
 
 Four Rust crates + one Lua layer + two JS packages:
 
-  ffr-core    Stat, classify, decode (encoding_rs), read, lines, cache,
-              db (LMDB: metadata + semantic named DBs), shared-state,
-              log (tracing), watcher (notify-debouncer-full), prefetch
-              (std::thread + crossbeam), specialized/{pdf,image,archive}.
-  ffr-nvim    CDylib loaded in-process by Neovim via package.loadlib.
-              mlua bindings; zero serialization for the hot path.
-  ffr-mcp     MCP server binary (stdio). Eleven tools. update_check +
-              cursor + outline modules.
-  ffr-c       C FFI shim (cdylib + staticlib) consumed by Bun and Node
-              packages at packages/ffr-bun and packages/ffr-node, with
-              platform-specific binaries in packages/ffr-bin-*.
-
-Pipeline: >
-    path -> stat -> classify -> policy -> read -> decode -> render
-<
-Buffer modes (ffr_mode buffer-local variable): ~
-  full                      entire file loaded
-  chunked                   one chunk, ]c/[c paginates
-  preview                   first chunk only, navigation limited
-  specialized:pdf|image|archive   specialized-handler output
-  reject                    rejection banner
-
-fff integration contract: >lua
-    require('ffr').open(path, {
-      source = 'fff',
-      preview = true,
-      initial_mode = 'auto',
-    })
+>
+                    ┌───────────────────── Neovim Plugin Layer (lua/ffr/) ─────────────────────┐
+                    │  init · client · config · config_validation · policy · cache · buffer   │
+                    │  session · render · commands · health · highlights · a11y · keymaps     │
+                    │  statusline · semantic · download · lifecycle · handlers/{pdf,image,archive}│
+                    └──────────┬──────────────────────────────────┬────────────────────────────┘
+                               │                                  │
+                          ┌────▼─────────┐                ┌───────▼─────────┐      ┌───────────────────┐
+                          │ ffr-nvim     │                │ ffr-mcp (stdio) │      │ ffr-c (cdylib)    │
+                          │ CDylib/mlua  │                │ rmcp server     │      │ + @ffr/bun        │
+                          │              │                │ + 11 tools      │      │ + @ffr/node       │
+                          └────┬─────────┘                └───────┬─────────┘      │ + 8 ffr-bin-*     │
+                               │                                  │                └────────┬──────────┘
+                               │                                  │                         │
+                          ┌────▼──────────────────────────────────▼─────────────────────────▼──────┐
+                          │                           ffr-core (shared lib)                        │
+                          │   stat · classify · decode (encoding_rs) · read · lines · cache        │
+                          │   shared · db (LMDB: metadata + semantic) · log (tracing) · watcher    │
+                          │   prefetch (crossbeam) · specialized/{pdf,image,archive} · types       │
+                          └─────────────────────────────────────────────────────────────────────────┘
 <
 
-==============================================================================
-13. TROUBLESHOOTING                                        *ffr-troubleshooting*
 
-"ffr-nvim not found"
-    Run `make build` in the plugin repo, or set $FFR_LIB_PATH to an existing
-    libffr_nvim library.
+BUFFER MODES ~
 
-":FFRHealth shows 'metadata store not initialized'"
-    setup() has not triggered client.start() yet. Open any file with :FFR,
-    or disable the persistent cache entirely via
-    `enable_persistent_metadata_cache = false`.
+  ------------------------------------------------------------------------------
+  Mode                    When                           Behavior
+  ----------------------- ------------------------------ -----------------------
+  full                    small text                     Entire file loaded.
+                          (size ≤ full_open_max_bytes)   
 
-"Watcher not catching changes"
-    Some filesystems (network mounts, containers with low inotify limits)
-    drop notify events. Run |:FFRInvalidate| on affected paths or raise
-    `watcher.debounce_ms`.
+  chunked                 large text                     One chunk visible;
+                                                         ]c/[c paginate.
 
-"PDF extraction returns empty"
-    The PDF is image-only or encrypted. pdf-extract is pure-Rust and has
-    limits; swap in a Poppler-backed extractor externally if needed.
+  preview                 preview=true, minified, or     First chunk, navigation
+                          initial_mode=preview           limited.
 
-"bun install @ffr/bun fails at runtime"
-    The prebuilt binary package for your platform hasn't been published
-    yet. Build locally with `cargo build --release -p ffr-c`, then set
-    `FFR_LIB_PATH=$(pwd)/target/release/libffr_c.dylib` (or `.so`/`.dll`).
+  specialized:pdf         .pdf                           Extracted text +
+                                                         metadata header.
 
-==============================================================================
- vim:tw=78:ts=8:ft=help:norl:
+  specialized:image       image extension                Dimensions + format +
+                                                         EXIF.
+
+  specialized:archive     .zip / .tar / .tar.gz / .tgz   Entry listing.
+
+  reject                  binary / unsafe /              Rejection banner with
+                          too-large-no-preview           reason.
+  ------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+BENCHMARKS                                           *ffr-ffr.nvim-benchmarks*
+
+>sh
+    make bench                              # criterion: classify, read, line_index
+    cargo run --release -p ffr-nvim --bin read_profiler -- /path/to/file
+    cargo run --release -p ffr-nvim --bin chunk_profiler -- /path/to/file
+<
+
+HTML reports land in `target/criterion/`.
+
+------------------------------------------------------------------------------
+
+BUILD                                                     *ffr-ffr.nvim-build*
+
+>sh
+    make build                  # release: ffr-nvim + ffr-mcp
+    make build-debug            # development build
+    make test                   # cargo test --workspace + Lua spec
+    make bench                  # criterion
+    make check                  # fmt + clippy
+<
+
+------------------------------------------------------------------------------
+
+RELEASE                                                 *ffr-ffr.nvim-release*
+
+>sh
+    ./scripts/release.sh 0.2.0
+<
+
+`scripts/release.sh` bumps `Cargo.toml`, tags `v0.2.0`, and pushes. CI
+(`.github/workflows/release.yml`) builds the 8-platform binary matrix, uploads
+release artifacts, and fires off the panvimdoc job to regenerate `doc/ffr.txt`
+from the README.
+
+------------------------------------------------------------------------------
+
+TROUBLESHOOTING                                 *ffr-ffr.nvim-troubleshooting*
+
+- **ffr-nvim not found**: run `make build` in the plugin repo, or set `FFR_LIB_PATH`.
+- **:FFRHealth shows “metadata store not initialized”**: setup hasn’t called `client.start()` yet. Open a file with `:FFR` to trigger it, or set `enable_persistent_metadata_cache = false`.
+- **Watcher not catching changes**: some filesystems (network mounts, containers with inotify limits) drop `notify` events. Run `:FFRInvalidate` manually on affected paths, or raise the debounce.
+- **PDF extraction returns empty**: the PDF is image-only or encrypted. Nothing ffr can do — this is a limitation of `pdf-extract`.
+- **bun install @ffr/bun fails at runtime**: the prebuilt binary package isn’t published yet. Use `FFR_LIB_PATH=$(pwd)/target/release/libffr_c.dylib` to point at a local build.
+
+------------------------------------------------------------------------------
+
+CONTRIBUTING                                       *ffr-ffr.nvim-contributing*
+
+See `doc/ffr.txt` for the full Lua API. For Rust work:
+
+>sh
+    cargo fmt --all
+    cargo clippy --workspace
+    cargo test --workspace --lib
+<
+
+For Lua:
+
+>sh
+    stylua lua/ tests/
+    luacheck lua/
+<
+
+Run `make check` before pushing. CI enforces fmt + clippy + spec.
+
+------------------------------------------------------------------------------
+
+LICENSE                                                 *ffr-ffr.nvim-license*
+
+MIT.
+
+Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
+
+vim:tw=78:ts=8:noet:ft=help:norl:
