@@ -214,6 +214,26 @@ pub fn extract_lines_from_range(
     Ok(lines)
 }
 
+/// Count newlines in the first `limit` bytes of a file, streaming.
+/// Cheaper than `construct_line_index` when only a single line number is
+/// needed: no offsets vector is allocated.
+pub fn count_newlines_before(path: &Path, limit: u64) -> Result<u64, FFRError> {
+    let file = File::open(path)?;
+    let mut reader = BufReader::with_capacity(8192, file.take(limit));
+    let mut buf = [0u8; 8192];
+    let mut count = 0u64;
+
+    loop {
+        let n = reader.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        count += buf[..n].iter().filter(|&&b| b == b'\n').count() as u64;
+    }
+
+    Ok(count)
+}
+
 /// Binary search for the line number at a given byte offset.
 /// Returns 1-based line number.
 pub fn byte_offset_to_line(index: &LineIndex, offset: u64) -> usize {
@@ -294,6 +314,33 @@ mod tests {
         let path = make_test_file("zero", "aaa\n");
         let result = read_lines(&path, 0, 1);
         assert!(result.is_err());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn count_newlines_before_offsets() {
+        let path = make_test_file("count_nl", "aaa\nbbb\nccc\n");
+        let p = Path::new(&path);
+        assert_eq!(count_newlines_before(p, 0).unwrap(), 0);
+        // mid first line
+        assert_eq!(count_newlines_before(p, 2).unwrap(), 0);
+        // exactly after first newline (offset 4 = start of line 2)
+        assert_eq!(count_newlines_before(p, 4).unwrap(), 1);
+        // whole file
+        assert_eq!(count_newlines_before(p, 12).unwrap(), 3);
+        // limit beyond EOF is clamped by take()
+        assert_eq!(count_newlines_before(p, 1000).unwrap(), 3);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn count_newlines_before_spans_buffer_boundary() {
+        // File larger than the 8192-byte read buffer; each line is 10 bytes.
+        let content: String = (0..2000).map(|i| format!("line {i:04}\n")).collect();
+        let path = make_test_file("count_nl_big", &content);
+        let p = Path::new(&path);
+        // Offset 15_000 = start of line 1501.
+        assert_eq!(count_newlines_before(p, 15_000).unwrap(), 1500);
         let _ = std::fs::remove_file(&path);
     }
 

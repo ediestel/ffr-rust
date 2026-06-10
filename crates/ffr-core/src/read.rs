@@ -95,17 +95,20 @@ pub fn read_range(path: &Path, offset: u64, length: usize) -> Result<Vec<u8>, FF
     Ok(buf)
 }
 
-/// Resolve chunk line numbers: use line index if cached, else count from text.
+/// Resolve chunk line numbers: use the cached line index when available,
+/// else stream-count newlines up to the chunk start so later chunks still
+/// report correct line numbers.
 fn resolve_chunk_lines(path: &Path, byte_start: u64, text: &str) -> (usize, usize) {
-    if let Ok(index) = crate::cache::get_line_index(path) {
-        let start_line = lines::byte_offset_to_line(&index, byte_start);
-        let line_count = text.lines().count().max(1);
-        let end_line = start_line + line_count - 1;
-        (start_line, end_line)
+    let start_line = if let Ok(index) = crate::cache::get_line_index(path) {
+        lines::byte_offset_to_line(&index, byte_start)
     } else {
-        let line_count = text.lines().count().max(1);
-        (1, line_count)
-    }
+        lines::count_newlines_before(path, byte_start)
+            .map(|newlines| newlines as usize + 1)
+            .unwrap_or(1)
+    };
+
+    let line_count = text.lines().count().max(1);
+    (start_line, start_line + line_count - 1)
 }
 
 #[cfg(test)]
