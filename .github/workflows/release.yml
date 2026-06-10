@@ -19,7 +19,8 @@ jobs:
           - target: aarch64-apple-darwin
             runner: macos-14
           - target: x86_64-apple-darwin
-            runner: macos-13
+            runner: macos-14
+            cross: true
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
@@ -32,11 +33,13 @@ jobs:
         with:
           key: mcp-${{ matrix.target }}
       - name: cargo build --release -p ffr-mcp
-        run: cargo build --release -p ffr-mcp
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --release -p ffr-mcp --target ${{ matrix.target }}
       - name: stage and checksum
         run: |
           mkdir -p dist
-          cp target/release/ffr-mcp "dist/ffr-mcp-${{ matrix.target }}"
+          cp "target/${{ matrix.target }}/release/ffr-mcp" "dist/ffr-mcp-${{ matrix.target }}"
           cd dist
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum "ffr-mcp-${{ matrix.target }}" > "ffr-mcp-${{ matrix.target }}.sha256"
@@ -44,6 +47,7 @@ jobs:
             shasum -a 256 "ffr-mcp-${{ matrix.target }}" > "ffr-mcp-${{ matrix.target }}.sha256"
           fi
       - name: smoke-test MCP handshake
+        if: matrix.cross != true
         run: |
           req='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}'
           echo "$req" | "dist/ffr-mcp-${{ matrix.target }}" | head -1 | grep -q '"result"'
