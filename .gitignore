@@ -36,3 +36,4 @@ result-*
 # tool session artifacts
 .artifact-read-session.json
 .gitnexus/
+.benchvenv/
