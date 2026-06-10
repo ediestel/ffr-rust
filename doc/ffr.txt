@@ -1,39 +1,43 @@
 *ffr.txt*                              Fast file reader for Neovim & AI agents
-                            For Neovim >= 0.10.0    Last change: 2026 April 17
+                             For Neovim >= 0.10.0    Last change: 2026 June 10
 
 ==============================================================================
 Table of Contents                                      *ffr-table-of-contents*
 
-1. ffr.nvim                                                     |ffr-ffr.nvim|
-  - Why ffr                                             |ffr-ffr.nvim-why-ffr|
-  - Feature matrix                               |ffr-ffr.nvim-feature-matrix|
-  - Install                                             |ffr-ffr.nvim-install|
-  - Commands                                           |ffr-ffr.nvim-commands|
-  - Configuration reference             |ffr-ffr.nvim-configuration-reference|
-  - MCP tools                                         |ffr-ffr.nvim-mcp-tools|
-  - Architecture                                   |ffr-ffr.nvim-architecture|
-  - Benchmarks                                       |ffr-ffr.nvim-benchmarks|
-  - Build                                                 |ffr-ffr.nvim-build|
-  - Release                                             |ffr-ffr.nvim-release|
-  - Troubleshooting                             |ffr-ffr.nvim-troubleshooting|
-  - Contributing                                   |ffr-ffr.nvim-contributing|
-  - License                                             |ffr-ffr.nvim-license|
+1. FF Reader                                                   |ffr-ff-reader|
+  - Why ffr                                            |ffr-ff-reader-why-ffr|
+  - Feature matrix                              |ffr-ff-reader-feature-matrix|
+  - Install                                            |ffr-ff-reader-install|
+  - Commands                                          |ffr-ff-reader-commands|
+  - Configuration reference            |ffr-ff-reader-configuration-reference|
+  - MCP tools                                        |ffr-ff-reader-mcp-tools|
+  - Architecture                                  |ffr-ff-reader-architecture|
+  - Benchmarks                                      |ffr-ff-reader-benchmarks|
+  - Build                                                |ffr-ff-reader-build|
+  - Release                                            |ffr-ff-reader-release|
+  - Troubleshooting                            |ffr-ff-reader-troubleshooting|
+  - Contributing                                  |ffr-ff-reader-contributing|
+  - License                                            |ffr-ff-reader-license|
 
 ==============================================================================
-1. ffr.nvim                                                     *ffr-ffr.nvim*
+1. FF Reader                                                   *ffr-ff-reader*
 
 **Classified, bounded, chunk-capable file reading for Neovim and AI agents.**
 
-ffr is the reading counterpart to fff.nvim
-<https://github.com/dmtrKovalenko/fff.nvim>: fff finds paths, ffr reads them.
-Where fff focuses on fuzzy file _search_, ffr focuses on _safely_ loading files
-— classifying them first, refusing binaries, chunking large files, and
+FF Reader is the reading counterpart to FF Framework
+<https://github.com/eckhartd/fff.nvim>: FF finds paths, FF Reader reads them.
+Where FF focuses on fuzzy file _search_, FF Reader focuses on _safely_ loading
+files — classifying them first, refusing binaries, chunking large files, and
 exposing a consistent surface to Neovim (via in-process FFI), AI agents (via
 MCP), and any other language (via a C FFI + Bun/Node bindings).
 
+
+  The file reading engine is original work. The search layer it pairs with is
+  built on fff.nvim <https://github.com/dmtrKovalenko/fff.nvim> by Dmitriy
+  Kovalenko <https://github.com/dmtrKovalenko>.
 ------------------------------------------------------------------------------
 
-WHY FFR                                                 *ffr-ffr.nvim-why-ffr*
+WHY FFR                                                *ffr-ff-reader-why-ffr*
 
 Loading an arbitrary file into a buffer (or into an LLM context window) is
 unsafe by default. Binaries, minified bundles, and multi-gigabyte logs can
@@ -51,7 +55,7 @@ a preview header) or a structured record for AI agents.
 
 ------------------------------------------------------------------------------
 
-FEATURE MATRIX                                   *ffr-ffr.nvim-feature-matrix*
+FEATURE MATRIX                                  *ffr-ff-reader-feature-matrix*
 
   -------------------------------------------------------------------------------------
   Capability                Status                  Notes
@@ -133,7 +137,7 @@ FEATURE MATRIX                                   *ffr-ffr.nvim-feature-matrix*
   -------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
-INSTALL                                                 *ffr-ffr.nvim-install*
+INSTALL                                                *ffr-ff-reader-install*
 
 
 NEOVIM (LAZY.NVIM) ~
@@ -214,7 +218,7 @@ NIX ~
 
 ------------------------------------------------------------------------------
 
-COMMANDS                                               *ffr-ffr.nvim-commands*
+COMMANDS                                              *ffr-ff-reader-commands*
 
   ------------------------------------------------------------------------------------------------
   Command                                   Purpose
@@ -255,7 +259,7 @@ Default keymaps inside chunked/preview buffers: `]c`/`[c` (byte chunks),
 
 ------------------------------------------------------------------------------
 
-CONFIGURATION REFERENCE                 *ffr-ffr.nvim-configuration-reference*
+CONFIGURATION REFERENCE                *ffr-ff-reader-configuration-reference*
 
 All fields are optional. Merged over defaults by `setup()`.
 
@@ -352,7 +356,7 @@ migrated to the new schema:
 
 ------------------------------------------------------------------------------
 
-MCP TOOLS                                             *ffr-ffr.nvim-mcp-tools*
+MCP TOOLS                                            *ffr-ff-reader-mcp-tools*
 
 11 tools exposed over stdio. All tools return text; structured data is
 JSON-embedded.
@@ -411,7 +415,7 @@ RECOMMENDED WORKFLOW (FROM MCP_INSTRUCTIONS) ~
 
 ------------------------------------------------------------------------------
 
-ARCHITECTURE                                       *ffr-ffr.nvim-architecture*
+ARCHITECTURE                                      *ffr-ff-reader-architecture*
 
 Four Rust crates + one Lua layer + two JS packages:
 
@@ -465,7 +469,7 @@ BUFFER MODES ~
   ------------------------------------------------------------------------------
 ------------------------------------------------------------------------------
 
-BENCHMARKS                                           *ffr-ffr.nvim-benchmarks*
+BENCHMARKS                                          *ffr-ff-reader-benchmarks*
 
 >sh
     make bench                              # criterion: classify, read, line_index
@@ -477,7 +481,7 @@ HTML reports land in `target/criterion/`.
 
 ------------------------------------------------------------------------------
 
-BUILD                                                     *ffr-ffr.nvim-build*
+BUILD                                                    *ffr-ff-reader-build*
 
 >sh
     make build                  # release: ffr-nvim + ffr-mcp
@@ -489,7 +493,7 @@ BUILD                                                     *ffr-ffr.nvim-build*
 
 ------------------------------------------------------------------------------
 
-RELEASE                                                 *ffr-ffr.nvim-release*
+RELEASE                                                *ffr-ff-reader-release*
 
 >sh
     ./scripts/release.sh 0.2.0
@@ -502,7 +506,7 @@ from the README.
 
 ------------------------------------------------------------------------------
 
-TROUBLESHOOTING                                 *ffr-ffr.nvim-troubleshooting*
+TROUBLESHOOTING                                *ffr-ff-reader-troubleshooting*
 
 - **ffr-nvim not found**: run `make build` in the plugin repo, or set `FFR_LIB_PATH`.
 - **:FFRHealth shows “metadata store not initialized”**: setup hasn’t called `client.start()` yet. Open a file with `:FFR` to trigger it, or set `enable_persistent_metadata_cache = false`.
@@ -512,7 +516,7 @@ TROUBLESHOOTING                                 *ffr-ffr.nvim-troubleshooting*
 
 ------------------------------------------------------------------------------
 
-CONTRIBUTING                                       *ffr-ffr.nvim-contributing*
+CONTRIBUTING                                      *ffr-ff-reader-contributing*
 
 See `doc/ffr.txt` for the full Lua API. For Rust work:
 
@@ -533,7 +537,7 @@ Run `make check` before pushing. CI enforces fmt + clippy + spec.
 
 ------------------------------------------------------------------------------
 
-LICENSE                                                 *ffr-ffr.nvim-license*
+LICENSE                                                *ffr-ff-reader-license*
 
 MIT.
 
