@@ -56,7 +56,10 @@ struct Args {
 
 fn default_log_file() -> String {
     let base = dirs::cache_dir().unwrap_or_else(std::env::temp_dir);
-    base.join("ffr").join("ffr-mcp.log").to_string_lossy().into_owned()
+    base.join("ffr")
+        .join("ffr-mcp.log")
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Exit code: 0 ok, 1 critical failure (LMDB unreachable, classify errors).
@@ -64,7 +67,10 @@ fn run_healthcheck(args: &Args) -> i32 {
     let mut status = 0i32;
     println!("ffr-mcp healthcheck");
     println!("  version: {}", env!("CARGO_PKG_VERSION"));
-    println!("  log_file: {}", args.log_file.clone().unwrap_or_else(default_log_file));
+    println!(
+        "  log_file: {}",
+        args.log_file.clone().unwrap_or_else(default_log_file)
+    );
     println!("  log_level: {}", args.log_level);
     println!("  chunk_bytes: {}", args.chunk_bytes);
     println!("  sniff_bytes: {}", args.sniff_bytes);
@@ -75,7 +81,10 @@ fn run_healthcheck(args: &Args) -> i32 {
         match ffr_core::cache::load_metadata_index(path) {
             Ok(()) => {
                 let n = ffr_core::cache::metadata_count().unwrap_or(0);
-                let p = ffr_core::cache::metadata_path().ok().flatten().unwrap_or_default();
+                let p = ffr_core::cache::metadata_path()
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default();
                 println!("  [ok] metadata LMDB: {p} ({n} entries)");
             }
             Err(e) => {
@@ -91,9 +100,17 @@ fn run_healthcheck(args: &Args) -> i32 {
     match std::env::current_exe() {
         Ok(p) => {
             let ps = p.to_string_lossy();
-            match ffr_core::classify::classify_path(&ps, args.sniff_bytes, args.full_open_max_bytes, args.minified_threshold) {
+            match ffr_core::classify::classify_path(
+                &ps,
+                args.sniff_bytes,
+                args.full_open_max_bytes,
+                args.minified_threshold,
+            ) {
                 Ok(r) => {
-                    println!("  [ok] classify({ps}) → kind={}, binary={}", r.kind, r.binary);
+                    println!(
+                        "  [ok] classify({ps}) → kind={}, binary={}",
+                        r.kind, r.binary
+                    );
                 }
                 Err(e) => {
                     println!("  [err] classify({ps}): {e}");

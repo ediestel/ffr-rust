@@ -32,3 +32,7 @@ result-*
 # Misc local
 .env
 .env.local
+
+# tool session artifacts
+.artifact-read-session.json
+.gitnexus/

@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use mlua::prelude::*;
 use mlua::LuaSerdeExt;
+use mlua::prelude::*;
 
 use ffr_core::watcher::FileWatcher;
 use ffr_core::{cache, classify, lines, log, prefetch, read, specialized, stat};
@@ -24,7 +24,10 @@ fn ffr_nvim(lua: &Lua) -> LuaResult<LuaTable> {
     exports.set("classify_path", lua.create_function(lua_classify_path)?)?;
     exports.set("read_bytes", lua.create_function(lua_read_bytes)?)?;
     exports.set("read_lines", lua.create_function(lua_read_lines)?)?;
-    exports.set("build_line_index", lua.create_function(lua_build_line_index)?)?;
+    exports.set(
+        "build_line_index",
+        lua.create_function(lua_build_line_index)?,
+    )?;
     exports.set("read_chunk", lua.create_function(lua_read_chunk)?)?;
     exports.set("configure", lua.create_function(lua_configure)?)?;
     exports.set("shutdown", lua.create_function(lua_shutdown)?)?;
@@ -89,13 +92,8 @@ fn lua_classify_path(lua: &Lua, args: LuaTable) -> LuaResult<LuaValue> {
     let full_open_max: u64 = args.get("full_open_max_bytes")?;
     let minified_threshold: usize = args.get("minified_line_length_threshold")?;
 
-    let result = classify::classify_path(
-        &path,
-        sniff_bytes,
-        full_open_max,
-        minified_threshold,
-    )
-    .map_err(core_err)?;
+    let result = classify::classify_path(&path, sniff_bytes, full_open_max, minified_threshold)
+        .map_err(core_err)?;
 
     lua.to_value(&result)
 }
@@ -128,8 +126,8 @@ fn lua_read_chunk(lua: &Lua, args: LuaTable) -> LuaResult<LuaValue> {
     let chunk_id: u64 = args.get("chunk_id")?;
     let chunk_bytes: Option<usize> = args.get("chunk_bytes")?;
 
-    let chunk_bytes: usize = chunk_bytes
-        .ok_or_else(|| LuaError::RuntimeError("chunk_bytes is required".to_string()))?;
+    let chunk_bytes: usize =
+        chunk_bytes.ok_or_else(|| LuaError::RuntimeError("chunk_bytes is required".to_string()))?;
     let result = read::read_chunk(&path, chunk_id, chunk_bytes).map_err(core_err)?;
     lua.to_value(&result)
 }
@@ -286,7 +284,9 @@ fn lua_metadata_info(lua: &Lua, _: ()) -> LuaResult<LuaValue> {
     let result = lua.create_table()?;
     result.set(
         "path",
-        cache::metadata_path().map_err(core_err)?.unwrap_or_default(),
+        cache::metadata_path()
+            .map_err(core_err)?
+            .unwrap_or_default(),
     )?;
     result.set("count", cache::metadata_count().map_err(core_err)?)?;
     result.set("disk_size", cache::metadata_disk_size().map_err(core_err)?)?;
@@ -347,7 +347,9 @@ fn lua_prefetch_hint(_lua: &Lua, args: LuaTable) -> LuaResult<bool> {
     let chunk_bytes: usize = args.get("chunk_bytes")?;
     let count: Option<u64> = args.get("count").ok();
     match count {
-        Some(n) if n > 0 => prefetch::hint_range(&path, chunk_id, n, chunk_bytes).map_err(core_err)?,
+        Some(n) if n > 0 => {
+            prefetch::hint_range(&path, chunk_id, n, chunk_bytes).map_err(core_err)?
+        }
         _ => prefetch::hint(&path, chunk_id, chunk_bytes).map_err(core_err)?,
     }
     Ok(true)

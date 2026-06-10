@@ -87,7 +87,13 @@ pub fn extract_specialized(path: &str) -> Result<SpecializedContent, FFRError> {
 fn is_image_ext(path: &str) -> bool {
     matches!(
         path.rsplit('.').next(),
-        Some("png") | Some("jpg") | Some("jpeg") | Some("gif") | Some("webp") | Some("bmp") | Some("ico")
+        Some("png")
+            | Some("jpg")
+            | Some("jpeg")
+            | Some("gif")
+            | Some("webp")
+            | Some("bmp")
+            | Some("ico")
     )
 }
 

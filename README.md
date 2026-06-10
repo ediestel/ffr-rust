@@ -1,12 +1,14 @@
-# ffr.nvim
+# FF Reader
 
 **Classified, bounded, chunk-capable file reading for Neovim and AI agents.**
 
-ffr is the reading counterpart to [fff.nvim](https://github.com/dmtrKovalenko/fff.nvim):
-fff finds paths, ffr reads them. Where fff focuses on fuzzy file *search*, ffr focuses on
+FF Reader is the reading counterpart to [FF Framework](https://github.com/eckhartd/fff.nvim):
+FF finds paths, FF Reader reads them. Where FF focuses on fuzzy file *search*, FF Reader focuses on
 *safely* loading files — classifying them first, refusing binaries, chunking large files,
 and exposing a consistent surface to Neovim (via in-process FFI), AI agents (via MCP),
 and any other language (via a C FFI + Bun/Node bindings).
+
+> The file reading engine is original work. The search layer it pairs with is built on [fff.nvim](https://github.com/dmtrKovalenko/fff.nvim) by [Dmitriy Kovalenko](https://github.com/dmtrKovalenko).
 
 ---
 

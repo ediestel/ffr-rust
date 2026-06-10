@@ -15,7 +15,10 @@ fn main() {
         std::process::exit(1);
     }
     let path = &args[1];
-    let chunk_bytes: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(64 * 1024);
+    let chunk_bytes: usize = args
+        .get(2)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(64 * 1024);
 
     let t0 = Instant::now();
     let mut chunk_id = 0u64;

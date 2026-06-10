@@ -6,9 +6,8 @@ use crate::errors::FFRError;
 
 pub fn extract(path: &str) -> Result<SpecializedContent, FFRError> {
     let path_buf = std::path::PathBuf::from(path);
-    let text = pdf_extract::extract_text(&path_buf).map_err(|e| {
-        FFRError::Internal(format!("pdf extract failed for {path}: {e}"))
-    })?;
+    let text = pdf_extract::extract_text(&path_buf)
+        .map_err(|e| FFRError::Internal(format!("pdf extract failed for {path}: {e}")))?;
 
     let char_count = text.chars().count();
     let summary = if char_count == 0 {

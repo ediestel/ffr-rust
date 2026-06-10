@@ -44,11 +44,7 @@ fn top_level_node_types(lang: &str) -> Option<&'static [&'static str]> {
             "method_definition",
         ]),
         "c" => Some(&["function_definition", "declaration"]),
-        "cpp" => Some(&[
-            "function_definition",
-            "class_specifier",
-            "struct_specifier",
-        ]),
+        "cpp" => Some(&["function_definition", "class_specifier", "struct_specifier"]),
         "go" => Some(&[
             "function_declaration",
             "method_declaration",
@@ -209,7 +205,10 @@ pub mod inner {}
         let chunks = outline_path(&path).unwrap().unwrap();
         let _ = std::fs::remove_file(&path);
 
-        let names: Vec<_> = chunks.iter().map(|c| (c.kind.clone(), c.name.clone())).collect();
+        let names: Vec<_> = chunks
+            .iter()
+            .map(|c| (c.kind.clone(), c.name.clone()))
+            .collect();
         assert!(names.contains(&("function_item".into(), Some("foo".into()))));
         assert!(names.contains(&("struct_item".into(), Some("Bar".into()))));
         assert!(names.contains(&("enum_item".into(), Some("Kind".into()))));
@@ -237,7 +236,10 @@ class Bar:
 
         let chunks = outline_path(&path).unwrap().unwrap();
         let _ = std::fs::remove_file(&path);
-        let names: Vec<_> = chunks.iter().map(|c| (c.kind.clone(), c.name.clone())).collect();
+        let names: Vec<_> = chunks
+            .iter()
+            .map(|c| (c.kind.clone(), c.name.clone()))
+            .collect();
         assert!(names.contains(&("function_definition".into(), Some("foo".into()))));
         assert!(names.contains(&("class_definition".into(), Some("Bar".into()))));
         // Method is inside the class body — we stop at class_definition so

@@ -8,7 +8,7 @@
 //! If the selected encoding produces replacement characters (decode errors),
 //! `DecodedText::had_errors` is set so the caller may warn the user.
 
-use encoding_rs::{Encoding, UTF_16BE, UTF_16LE, UTF_8};
+use encoding_rs::{Encoding, UTF_8, UTF_16BE, UTF_16LE};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::FFRError;

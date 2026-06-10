@@ -162,8 +162,19 @@ fn name_kind(pattern: &str) -> String {
     // Extract the first keyword that isn't a regex metachar/modifier. This is
     // a best-effort label; exact names are the source of truth.
     for tag in &[
-        "fn", "struct", "enum", "trait", "impl", "mod", "class", "interface", "type", "def",
-        "function", "async def", "func",
+        "fn",
+        "struct",
+        "enum",
+        "trait",
+        "impl",
+        "mod",
+        "class",
+        "interface",
+        "type",
+        "def",
+        "function",
+        "async def",
+        "func",
     ] {
         if pattern.contains(tag) {
             return (*tag).to_string();

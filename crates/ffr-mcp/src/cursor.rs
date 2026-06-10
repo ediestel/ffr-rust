@@ -53,7 +53,10 @@ mod tests {
 
     #[test]
     fn roundtrip() {
-        let c = Cursor { offset: 42, limit: 100 };
+        let c = Cursor {
+            offset: 42,
+            limit: 100,
+        };
         let encoded = c.encode();
         let back = Cursor::decode(&encoded).unwrap();
         assert_eq!(back.offset, 42);

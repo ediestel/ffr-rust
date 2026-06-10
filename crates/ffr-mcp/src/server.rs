@@ -206,7 +206,12 @@ impl FfrServer {
             self.minified_line_length_threshold,
         )
         .map_err(|e| {
-            log_call("classify_file", &params.path, 0, &format!("error:{}", e.code()));
+            log_call(
+                "classify_file",
+                &params.path,
+                0,
+                &format!("error:{}", e.code()),
+            );
             ErrorData::internal_error(e.to_string(), None)
         })?;
 
@@ -272,8 +277,8 @@ impl FfrServer {
         &self,
         Parameters(params): Parameters<ReadChunkParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let result = read::read_chunk(&params.path, params.chunk_id, self.chunk_bytes).map_err(
-            |e| {
+        let result =
+            read::read_chunk(&params.path, params.chunk_id, self.chunk_bytes).map_err(|e| {
                 log_call(
                     "read_chunk",
                     &params.path,
@@ -281,13 +286,11 @@ impl FfrServer {
                     &format!("error:{}", e.code()),
                 );
                 ErrorData::internal_error(e.to_string(), None)
-            },
-        )?;
+            })?;
 
         let mut output = format!(
             "chunk {}: bytes {}..{}, lines {}..{}\n",
-            result.chunk_id, result.byte_start, result.byte_end, result.start_line,
-            result.end_line,
+            result.chunk_id, result.byte_start, result.byte_end, result.start_line, result.end_line,
         );
         if result.eof {
             output.push_str("[last chunk]\n");
@@ -468,7 +471,12 @@ impl FfrServer {
     ) -> Result<CallToolResult, ErrorData> {
         let max = params.max_entries.unwrap_or(500);
         let content = specialized::extract_specialized(&params.path).map_err(|e| {
-            log_call("list_archive", &params.path, 0, &format!("error:{}", e.code()));
+            log_call(
+                "list_archive",
+                &params.path,
+                0,
+                &format!("error:{}", e.code()),
+            );
             ErrorData::internal_error(e.to_string(), None)
         })?;
 
@@ -779,14 +787,17 @@ mod tests {
 
     #[test]
     fn resolve_compiled_pattern_actually_matches_literal_when_expected() {
-        use grep_regex::RegexMatcherBuilder;
         use grep_matcher::Matcher;
+        use grep_regex::RegexMatcherBuilder;
 
         let (compiled, is_regex) = resolve_search_pattern("foo.bar");
         assert!(is_regex);
         let m = RegexMatcherBuilder::new().build(&compiled).unwrap();
         assert!(m.is_match(b"foo.bar").unwrap());
-        assert!(m.is_match(b"fooXbar").unwrap(), "regex mode: dot matches any char");
+        assert!(
+            m.is_match(b"fooXbar").unwrap(),
+            "regex mode: dot matches any char"
+        );
 
         // `a+b` is a regex meaning "one or more a followed by b" — documents
         // that a pattern with metachars is NOT auto-escaped into literal mode.
@@ -820,11 +831,7 @@ mod tests {
 
     #[test]
     fn outline_uses_tree_sitter_for_rust() {
-        let path = write_tmp(
-            "ts_rust",
-            "rs",
-            "pub fn foo() {}\npub struct Bar;\n",
-        );
+        let path = write_tmp("ts_rust", "rs", "pub fn foo() {}\npub struct Bar;\n");
         let (chunks, source) = resolve_outline(&path, 100).unwrap();
         let _ = std::fs::remove_file(&path);
         assert_eq!(source, OutlineSource::TreeSitter);

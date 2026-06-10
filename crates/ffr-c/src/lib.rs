@@ -16,10 +16,12 @@ use ffr_core::{classify, lines, read, stat};
 // ---------------------------------------------------------------------------
 
 fn to_cstring(json: String) -> *mut c_char {
-    CString::new(json).unwrap_or_else(|_| {
-        CString::new("{\"error\":{\"code\":\"Internal\",\"message\":\"nul in output\"}}").unwrap()
-    })
-    .into_raw()
+    CString::new(json)
+        .unwrap_or_else(|_| {
+            CString::new("{\"error\":{\"code\":\"Internal\",\"message\":\"nul in output\"}}")
+                .unwrap()
+        })
+        .into_raw()
 }
 
 fn error_json(code: &str, message: &str) -> *mut c_char {

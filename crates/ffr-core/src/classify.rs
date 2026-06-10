@@ -3,8 +3,8 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::errors::FFRError;
-use crate::types::ClassifyPathResult;
 use crate::stat;
+use crate::types::ClassifyPathResult;
 
 /// Classify a path using the provided threshold parameters (from runtime config).
 pub fn classify_path(
@@ -116,34 +116,11 @@ pub fn detect_kind(path: &Path) -> String {
         .map(|s| s.to_ascii_lowercase());
 
     match ext.as_deref() {
-        Some("txt")
-        | Some("md")
-        | Some("rs")
-        | Some("lua")
-        | Some("py")
-        | Some("js")
-        | Some("ts")
-        | Some("tsx")
-        | Some("jsx")
-        | Some("c")
-        | Some("h")
-        | Some("cpp")
-        | Some("hpp")
-        | Some("go")
-        | Some("java")
-        | Some("sh")
-        | Some("zsh")
-        | Some("toml")
-        | Some("yaml")
-        | Some("yml")
-        | Some("ini")
-        | Some("conf")
-        | Some("log")
-        | Some("csv")
-        | Some("sql")
-        | Some("html")
-        | Some("css")
-        | Some("vim") => "text".to_string(),
+        Some("txt") | Some("md") | Some("rs") | Some("lua") | Some("py") | Some("js")
+        | Some("ts") | Some("tsx") | Some("jsx") | Some("c") | Some("h") | Some("cpp")
+        | Some("hpp") | Some("go") | Some("java") | Some("sh") | Some("zsh") | Some("toml")
+        | Some("yaml") | Some("yml") | Some("ini") | Some("conf") | Some("log") | Some("csv")
+        | Some("sql") | Some("html") | Some("css") | Some("vim") => "text".to_string(),
 
         Some("json") => "json".to_string(),
 
@@ -176,8 +153,7 @@ pub fn sniff_binary(path: &Path, sniff_bytes: usize) -> Result<bool, FFRError> {
     let mut suspicious = 0usize;
 
     for &b in &sample {
-        let is_allowed =
-            matches!(b, 0x09 | 0x0A | 0x0D) || (0x20..=0x7E).contains(&b) || b >= 0x80;
+        let is_allowed = matches!(b, 0x09 | 0x0A | 0x0D) || (0x20..=0x7E).contains(&b) || b >= 0x80;
 
         if !is_allowed {
             suspicious += 1;
